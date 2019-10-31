@@ -16,11 +16,7 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for MyWs {
         println!("WS: {:?}", msg);
         match msg {
             ws::Message::Ping(msg) => ctx.pong(&msg),
-            ws::Message::Text(text) => {
-                let addr = ctx.address();
-                println!("{:?}", addr)
-                // ctx.text(text)
-            },
+            ws::Message::Text(text) => ctx.text(text),
             ws::Message::Binary(bin) => ctx.binary(bin),
             _ => (),
         }
