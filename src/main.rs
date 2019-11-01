@@ -1,10 +1,15 @@
-use actix::{Actor, StreamHandler};
+use actix::{Actor, StreamHandler, Message, Handler};
 use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
 use listenfd::ListenFd;
 
+/// Chat server sends this messages to session
+
 /// Define http actor
 struct MyWs;
+
+#[derive(Clone, Message)]
+pub struct ChatMessage(pub String);
 
 impl Actor for MyWs {
     type Context = ws::WebsocketContext<Self>;
@@ -16,15 +21,26 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for MyWs {
         println!("WS: {:?}", msg);
         match msg {
             ws::Message::Ping(msg) => ctx.pong(&msg),
-            ws::Message::Text(text) => ctx.text(text),
+            ws::Message::Text(text) => (),
             ws::Message::Binary(bin) => ctx.binary(bin),
             _ => (),
         }
     }
 }
 
-fn index(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
-    let resp = ws::start(MyWs {}, &req, stream);
+impl Handler<ChatMessage> for MyWs {
+    type Result = ();
+
+    fn handle(&mut self, msg: ChatMessage, ctx: &mut Self::Context) {
+        ctx.text(msg.0);
+    }
+}
+
+fn index(req: HttpRequest, stream: web::Payload) -> HttpResponse {
+    let (addr, resp) = ws::start_with_addr(MyWs {}, &req, stream).unwrap();
+    let message = ChatMessage("Exploto".to_owned());
+    addr.do_send(message);
+
     resp
 }
 
