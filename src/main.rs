@@ -1,31 +1,46 @@
-mod server;
 mod node;
+mod server;
 
 use actix::*;
-use actix_web::{web, App, HttpServer};
+use actix_files as fs;
+use actix_web::{web, App, HttpResponse, HttpServer};
 use listenfd::ListenFd;
-use std::sync::Mutex;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
+use rand::{self, rngs::ThreadRng, Rng};
+
 
 use server::*;
 
-fn main() {
+fn main() -> std::io::Result<()> {
+    env_logger::init();
+    let sys = System::new("ws-server");
     // For dev only
     let mut listenfd = ListenFd::from_env();
 
-    let data = web::Data::new(AppState {
-        clients: Mutex::new(HashMap::new()),
-    });
-
-    let mut server = HttpServer::new(move || App::new().register_data(data.clone()).route("/ws/", web::get().to(index)));
-
-
-    server = if let Some(l) = listenfd.take_tcp_listener(0).unwrap() {
-        server.listen(l).unwrap()
-    } else {
-        server.bind("127.0.0.1:3000").unwrap()
+    // Start chat server actor
+    let ws_server = Server {
+        name: "Server".to_string(),
+        clients: HashMap::new(),
+        rng: rand::thread_rng(),
     };
 
-    server.run().unwrap();
-  
+    let server = ws_server.start();
+
+    HttpServer::new(move || {
+        App::new()
+            .data(server.clone())
+            .service(web::resource("/").to(|| {
+                HttpResponse::Found()
+                    .header("LOCATION", "/static/index.html")
+                    .finish()
+            }))
+            .service(fs::Files::new("/static/", "client/"))
+            .service(web::resource("/ws/").to(index))
+    })
+    .bind("127.0.0.1:3000")?
+    .start();
+
+    sys.run()
+
+
 }
