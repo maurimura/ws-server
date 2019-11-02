@@ -1,64 +1,46 @@
-use actix::{Actor, StreamHandler, Message, Handler};
-use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer};
-use actix_web_actors::ws;
+mod node;
+mod server;
+
+use actix::*;
+use actix_files as fs;
+use actix_web::{web, App, HttpResponse, HttpServer};
 use listenfd::ListenFd;
+use std::collections::{HashMap};
+use rand::{self, rngs::ThreadRng, Rng};
 
-/// Chat server sends this messages to session
 
-/// Define http actor
-struct MyWs;
+use server::*;
 
-#[derive(Clone, Message)]
-pub struct ChatMessage(pub String);
-
-impl Actor for MyWs {
-    type Context = ws::WebsocketContext<Self>;
-}
-
-/// Handler for ws::Message message
-impl StreamHandler<ws::Message, ws::ProtocolError> for MyWs {
-    fn handle(&mut self, msg: ws::Message, ctx: &mut Self::Context) {
-        println!("WS: {:?}", msg);
-        match msg {
-            ws::Message::Ping(msg) => ctx.pong(&msg),
-            ws::Message::Text(text) => (),
-            ws::Message::Binary(bin) => ctx.binary(bin),
-            _ => (),
-        }
-    }
-}
-
-impl Handler<ChatMessage> for MyWs {
-    type Result = ();
-
-    fn handle(&mut self, msg: ChatMessage, ctx: &mut Self::Context) {
-        ctx.text(msg.0);
-    }
-}
-
-fn index(req: HttpRequest, stream: web::Payload) -> HttpResponse {
-    let (addr, resp) = ws::start_with_addr(MyWs {}, &req, stream).unwrap();
-    let message = ChatMessage("Exploto".to_owned());
-    addr.do_send(message);
-
-    resp
-}
-
-fn main() {
+fn main() -> std::io::Result<()> {
+    env_logger::init();
+    let sys = System::new("ws-server");
     // For dev only
     let mut listenfd = ListenFd::from_env();
 
-    let mut server = HttpServer::new(|| App::new().route("/ws/", web::get().to(index)));
-
-    server = if let Some(l) = listenfd.take_tcp_listener(0).unwrap() {
-        server.listen(l).unwrap()
-    } else {
-        server.bind("127.0.0.1:3000").unwrap()
+    // Start chat server actor
+    let ws_server = Server {
+        name: "Server".to_string(),
+        clients: HashMap::new(),
+        rng: rand::thread_rng(),
     };
 
-    server.run().unwrap();
-    // .bind("127.0.0.1:8088")
-    //     .unwrap()
-    //     .run()
-    //     .unwrap();
+    let server = ws_server.start();
+
+    HttpServer::new(move || {
+        App::new()
+            .data(server.clone())
+            .service(web::resource("/").to(|| {
+                HttpResponse::Found()
+                    .header("LOCATION", "/static/index.html")
+                    .finish()
+            }))
+            .service(fs::Files::new("/static/", "client/"))
+            .service(web::resource("/ws/").to(index))
+    })
+    .bind("127.0.0.1:3000")?
+    .start();
+
+    sys.run()
+
+
 }
