@@ -1,4 +1,4 @@
-use crate::server::{Connect, Disconnect, Message, Server};
+use crate::server::{Connect, Disconnect, List, Message, Server};
 use actix::*;
 use actix_web_actors::ws;
 
@@ -14,8 +14,6 @@ impl Actor for Node {
     /// Method is called on actor start.
     /// We register ws session with ChatServer
     fn started(&mut self, ctx: &mut Self::Context) {
-        // we'll start heartbeat process on session start.
-
         // register self in chat server. `AsyncContext::wait` register
         // future within context, but context waits until this future resolves
         // before processing any other events.
@@ -35,6 +33,22 @@ impl Actor for Node {
                     }
                     // something is wrong with chat server
                     _ => ctx.stop(),
+                }
+                fut::ok(())
+            })
+            .wait(ctx);
+
+        self.addr
+            .send(List)
+            .into_actor(self)
+            .then(|res, act, ctx| {
+                match res {
+                    Ok(clients) => {
+                        for client in clients {
+                            ctx.text(client.to_string());
+                        }
+                    }
+                    _ => println!("Something is wrong"),
                 }
                 fut::ok(())
             })

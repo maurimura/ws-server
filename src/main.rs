@@ -4,7 +4,6 @@ mod server;
 use actix::*;
 use actix_files as fs;
 use actix_web::{web, App, HttpResponse, HttpServer};
-use listenfd::ListenFd;
 use std::collections::{HashMap};
 use rand::{self, rngs::ThreadRng, Rng};
 
@@ -14,8 +13,6 @@ use server::*;
 fn main() -> std::io::Result<()> {
     env_logger::init();
     let sys = System::new("ws-server");
-    // For dev only
-    let mut listenfd = ListenFd::from_env();
 
     // Start chat server actor
     let ws_server = Server {

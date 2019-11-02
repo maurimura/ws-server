@@ -63,6 +63,27 @@ impl Handler<Disconnect> for Server {
     }
 }
 
+/// List of available rooms
+pub struct List;
+
+impl actix::Message for List {
+    type Result = Vec<usize>;
+}
+/// Handler for `ListRooms` message.
+impl Handler<List> for Server {
+    type Result = MessageResult<List>;
+
+    fn handle(&mut self, _: List, _: &mut Context<Self>) -> Self::Result {
+        let mut clients = Vec::new();
+
+        for key in self.clients.keys() {
+            clients.push(key.to_owned())
+        }
+
+        MessageResult(clients)
+    }
+}
+
 pub fn index(
     req: HttpRequest,
     stream: web::Payload,
