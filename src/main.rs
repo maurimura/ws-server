@@ -1,5 +1,7 @@
 mod node;
 mod server;
+#[macro_use]
+extern crate json;
 
 use actix::*;
 use actix_files as fs;

@@ -1,6 +1,7 @@
 use crate::server::{Connect, Disconnect, List, Message, Server};
 use actix::*;
 use actix_web_actors::ws;
+use json::*;
 
 pub struct Node {
     pub id: usize,
@@ -45,7 +46,11 @@ impl Actor for Node {
                 match res {
                     Ok(clients) => {
                         for client in clients {
-                            ctx.text(client.to_string());
+                            let data = object! {
+                                "client" => client.to_string()
+                            };
+
+                            ctx.text(json::stringify(data));
                         }
                     }
                     _ => println!("Something is wrong"),
