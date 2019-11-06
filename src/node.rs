@@ -45,13 +45,14 @@ impl Actor for Node {
             .then(|res, act, ctx| {
                 match res {
                     Ok(clients) => {
+                        let mut data = array! [];
                         for client in clients {
-                            let data = object! {
-                                "client" => client.to_string()
-                            };
-
-                            ctx.text(json::stringify(data));
+                            data.push(client);
                         }
+                        // How we could do broadcast
+                        // act.addr.do_send(Message(format!("{} Joined", res)));
+                        ctx.text(json::stringify(data));
+                        // }
                     }
                     _ => println!("Something is wrong"),
                 }

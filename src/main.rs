@@ -1,13 +1,12 @@
 mod node;
 mod server;
-#[macro_use]
 extern crate json;
 
 use actix::*;
 use actix_files as fs;
 use actix_web::{web, App, HttpResponse, HttpServer};
 use std::collections::{HashMap};
-use rand::{self, rngs::ThreadRng, Rng};
+use rand::{self};
 
 
 use server::*;
