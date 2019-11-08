@@ -43,7 +43,7 @@ impl Actor for Node {
                 match res {
                     Ok(res) => {
                         println!("ID Matched: {:?}", res);
-                        act.id = res;
+                        
                     }
                     // something is wrong with chat server
                     _ => ctx2.stop(),
@@ -55,14 +55,23 @@ impl Actor for Node {
         self.addr
             .send(List)
             .into_actor(self)
-            .then(|res, _, ctx| {
+            .then(|res,act, ctx| {
                 match res {
                     Ok(clients) => {
                         let mut data = array! [];
                         for client in clients {
-                            let _= data.push(client);
+                            println!("CLIENT {}", client);
+                            println!("ID {}", act.id);
+
+                            if client != act.id {
+                                let _= data.push(client);
+                            };
                         }
-                        ctx.text(json::stringify(data))
+                        let resp = object! {
+                            "type" => "WELCOME",
+                            "payload" => data
+                        };
+                        ctx.text(json::stringify(resp))
                     }
                     _ => println!("Something is wrong"),
                 }
