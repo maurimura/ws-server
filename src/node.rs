@@ -52,32 +52,33 @@ impl Actor for Node {
             })
             .wait(ctx);
 
-        self.addr
-            .send(List)
-            .into_actor(self)
-            .then(|res,act, ctx| {
-                match res {
-                    Ok(clients) => {
-                        let mut data = array! [];
-                        for client in clients {
-                            println!("CLIENT {}", client);
-                            println!("ID {}", act.id);
+        // Send this from server crate
+        // self.addr
+        //     .send(List)
+        //     .into_actor(self)
+        //     .then(|res,act, ctx| {
+        //         match res {
+        //             Ok(clients) => {
+        //                 let mut data = array! [];
+        //                 for client in clients {
+        //                     println!("CLIENT {}", client);
+        //                     println!("ID {}", act.id);
 
-                            if client != act.id {
-                                let _= data.push(client);
-                            };
-                        }
-                        let resp = object! {
-                            "type" => "WELCOME",
-                            "payload" => data
-                        };
-                        ctx.text(json::stringify(resp))
-                    }
-                    _ => println!("Something is wrong"),
-                }
-                fut::ok(())
-            })
-            .wait(ctx);
+        //                     if client != act.id {
+        //                         let _= data.push(client);
+        //                     };
+        //                 }
+        //                 let resp = object! {
+        //                     "type" => "WELCOME",
+        //                     "payload" => data
+        //                 };
+        //                 ctx.text(json::stringify(resp))
+        //             }
+        //             _ => println!("Something is wrong"),
+        //         }
+        //         fut::ok(())
+        //     })
+        //     .wait(ctx);
     }
 
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
