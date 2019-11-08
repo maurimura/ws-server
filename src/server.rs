@@ -2,9 +2,9 @@ use crate::node::*;
 use actix::*;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
+use json::{object};
 use rand::{self, rngs::ThreadRng, Rng};
 use std::collections::HashMap;
-
 /// Define http actor
 pub struct Server {
     pub name: String,
@@ -17,16 +17,16 @@ pub struct Message(pub String);
 
 impl Server {
     /// Send message to all users in the room
-    fn send_message(&mut self, message: &str, skip_id: Option<usize>) {
+    fn send_message(&mut self, message: String, skip_id: Option<usize>) {
         for (id, addr) in self.clients.iter() {
             match skip_id {
                 Some(skip_id) => {
                     if *id != skip_id {
-                        let _ = addr.do_send(Message(message.to_owned()));
+                        let _ = addr.do_send(Message(message.clone()));
                     }
                 }
                 None => {
-                    let _ = addr.do_send(Message(message.to_owned()));
+                    let _ = addr.do_send(Message(message.clone()));
                 }
             }
         }
@@ -57,8 +57,11 @@ impl Handler<Connect> for Server {
         // register session with random id
         let id = self.rng.gen::<usize>();
         let _ = self.clients.insert(id, msg.addr);
-
-        self.send_message(&format!("{} Joined", id).to_string(), Some(id));
+        let resp = object! {
+            "type" => "ADD",
+            "payload" => id
+        };
+        self.send_message(json::stringify(resp), Some(id));
         // send id back
         id
     }
@@ -78,7 +81,11 @@ impl Handler<Disconnect> for Server {
         println!("{:?} disconnected", msg.id);
 
         // remove address
-        self.send_message(&format!("{} Left", msg.id).to_string(), None);
+        let resp = object! {
+            "type" => "DEL",
+            "payload" => msg.id
+        };
+        self.send_message(json::stringify(resp), None);
         self.clients.remove(&msg.id);
     }
 }
