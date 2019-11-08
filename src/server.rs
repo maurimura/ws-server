@@ -15,6 +15,24 @@ pub struct Server {
 #[derive(Clone, Message)]
 pub struct Message(pub String);
 
+impl Server {
+    /// Send message to all users in the room
+    fn send_message(&mut self, message: &str, skip_id: Option<usize>) {
+        for (id, addr) in self.clients.iter() {
+            match skip_id {
+                Some(skip_id) => {
+                    if *id != skip_id {
+                        let _ = addr.do_send(Message(message.to_owned()));
+                    }
+                }
+                None => {
+                    let _ = addr.do_send(Message(message.to_owned()));
+                }
+            }
+        }
+    }
+}
+
 impl Actor for Server {
     type Context = Context<Self>;
 }
@@ -38,8 +56,9 @@ impl Handler<Connect> for Server {
 
         // register session with random id
         let id = self.rng.gen::<usize>();
-        self.clients.insert(id, msg.addr);
+        let _ = self.clients.insert(id, msg.addr);
 
+        self.send_message(&format!("{} Joined", id).to_string(), Some(id));
         // send id back
         id
     }
@@ -59,6 +78,7 @@ impl Handler<Disconnect> for Server {
         println!("{:?} disconnected", msg.id);
 
         // remove address
+        self.send_message(&format!("{} Left", msg.id).to_string(), None);
         self.clients.remove(&msg.id);
     }
 }
