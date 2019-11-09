@@ -1,7 +1,6 @@
-use crate::server::{Connect, Disconnect, List, Message, Server};
+use crate::server::{Connect, Disconnect, Message, Server};
 use actix::*;
 use actix_web_actors::ws;
-use json::*;
 
 #[derive(Clone, Message)]
 #[rtype(String)]
@@ -39,7 +38,7 @@ impl Actor for Node {
                 addr: addr.recipient(),
             })
             .into_actor(self)
-            .then(|res, act, ctx2| {
+            .then(|res, _, ctx2| {
                 match res {
                     Ok(res) => {
                         println!("ID Matched: {:?}", res);
@@ -51,34 +50,6 @@ impl Actor for Node {
                 fut::ok(())
             })
             .wait(ctx);
-
-        // Send this from server crate
-        // self.addr
-        //     .send(List)
-        //     .into_actor(self)
-        //     .then(|res,act, ctx| {
-        //         match res {
-        //             Ok(clients) => {
-        //                 let mut data = array! [];
-        //                 for client in clients {
-        //                     println!("CLIENT {}", client);
-        //                     println!("ID {}", act.id);
-
-        //                     if client != act.id {
-        //                         let _= data.push(client);
-        //                     };
-        //                 }
-        //                 let resp = object! {
-        //                     "type" => "WELCOME",
-        //                     "payload" => data
-        //                 };
-        //                 ctx.text(json::stringify(resp))
-        //             }
-        //             _ => println!("Something is wrong"),
-        //         }
-        //         fut::ok(())
-        //     })
-        //     .wait(ctx);
     }
 
     fn stopping(&mut self, _: &mut Self::Context) -> Running {

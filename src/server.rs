@@ -2,9 +2,11 @@ use crate::node::*;
 use actix::*;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
-use json::{object};
+use json::array;
+use json::object;
 use rand::{self, rngs::ThreadRng, Rng};
 use std::collections::HashMap;
+
 /// Define http actor
 pub struct Server {
     pub name: String,
@@ -33,6 +35,17 @@ impl Server {
     }
 
     // Implement send_message_to
+    fn send_message_to(&mut self, message: String, id_to_send: usize) {
+        let addr = self.clients.get(&id_to_send);
+        match addr {
+            Some(addr) => {
+                println!("[SEND_MESSAGE_TO] Client {} matched ", id_to_send);
+                println!("{}", message);
+                let _ = addr.do_send(Message(message.clone()));
+            }
+            None => println!("Client not exist"),
+        }
+    }
 }
 
 impl Actor for Server {
@@ -64,6 +77,23 @@ impl Handler<Connect> for Server {
             "payload" => id
         };
         self.send_message(json::stringify(resp), Some(id));
+
+        let mut data = array![];
+        for (&id, _) in self
+            .clients
+            .iter()
+            .filter(|(&client_id, _)| client_id != id)
+        {
+            let _ = data.push(id);
+        }
+
+        let resp = object! {
+            "type" => "WELCOME",
+            "payload" => data
+        };
+        println!("{}", id);
+        self.send_message_to(json::stringify(resp), id);
+
         // send id back
         id
     }
