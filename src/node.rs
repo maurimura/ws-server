@@ -38,10 +38,11 @@ impl Actor for Node {
                 addr: addr.recipient(),
             })
             .into_actor(self)
-            .then(|res, _, ctx2| {
+            .then(|res, act, ctx2| {
                 match res {
                     Ok(res) => {
                         println!("ID Matched: {:?}", res);
+                        act.id = res
                         
                     }
                     // something is wrong with chat server
