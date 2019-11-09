@@ -2,6 +2,20 @@ use crate::server::{Connect, Disconnect, Message, Server};
 use actix::*;
 use actix_web_actors::ws;
 
+#[derive(Clone, Message)]
+#[rtype(String)]
+pub struct Connected(pub String);
+
+/// Handler for Disconnect message.
+impl Handler<Connected> for Server {
+    type Result = String;
+
+    fn handle(&mut self, msg: Connected, _: &mut Context<Self>) -> Self::Result {
+        println!("{:?}", msg.0);
+        msg.0
+    }
+}
+
 pub struct Node {
     pub id: usize,
     pub name: String,
@@ -10,12 +24,9 @@ pub struct Node {
 
 impl Actor for Node {
     type Context = ws::WebsocketContext<Self>;
-
     /// Method is called on actor start.
     /// We register ws session with ChatServer
     fn started(&mut self, ctx: &mut Self::Context) {
-        // we'll start heartbeat process on session start.
-
         // register self in chat server. `AsyncContext::wait` register
         // future within context, but context waits until this future resolves
         // before processing any other events.
@@ -27,14 +38,14 @@ impl Actor for Node {
                 addr: addr.recipient(),
             })
             .into_actor(self)
-            .then(|res, act, ctx| {
+            .then(|res, _, ctx2| {
                 match res {
                     Ok(res) => {
                         println!("ID Matched: {:?}", res);
-                        act.id = res
+                        
                     }
                     // something is wrong with chat server
-                    _ => ctx.stop(),
+                    _ => ctx2.stop(),
                 }
                 fut::ok(())
             })
