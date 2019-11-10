@@ -1,4 +1,4 @@
-use crate::server::{Connect, Disconnect, Message, Server};
+use crate::server::{All, Connect, Disconnect, Message, Server, To};
 use actix::*;
 use actix_web_actors::ws;
 
@@ -17,9 +17,45 @@ impl Handler<Connected> for Server {
 }
 
 pub struct Node {
-    pub id: usize,
+    pub id: String,
     pub name: String,
     pub addr: Addr<Server>,
+}
+
+impl Node {
+    fn decode(&mut self, message: String, ctx: &mut ws::WebsocketContext<Self>) {
+        println!("{}", message);
+
+        let m = message.trim();
+        if m.starts_with("/") {
+            let v: Vec<&str> = m.splitn(2, " ").collect();
+
+            match v[0] {
+                "/all" => {
+                    self.addr
+                        .send(All {
+                            message: v[1].to_string(),
+                            id: self.id.clone(),
+                        })
+                        .into_actor(self)
+                        .then(|_, _, _| {
+                            fut::ok(())
+                        })
+                        .wait(ctx);
+                }
+                "/to" => {
+                    let new_vec: Vec<&str> = v[1].splitn(2, " ").collect();
+                    println!("{:?}", new_vec);
+                    self.addr.do_send(To {
+                        id: self.id.clone(),
+                        message: new_vec[1].to_string(),
+                        id_to_send: new_vec[0].parse().unwrap()
+                    });
+                }   
+                _ => {}
+            }
+        }
+    }
 }
 
 impl Actor for Node {
@@ -40,11 +76,7 @@ impl Actor for Node {
             .into_actor(self)
             .then(|res, act, ctx2| {
                 match res {
-                    Ok(res) => {
-                        println!("ID Matched: {:?}", res);
-                        act.id = res
-                        
-                    }
+                    Ok(res) => act.id = res,
                     // something is wrong with chat server
                     _ => ctx2.stop(),
                 }
@@ -54,9 +86,8 @@ impl Actor for Node {
     }
 
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
-        println!("Someone dissconected");
         // notify chat server
-        self.addr.do_send(Disconnect { id: self.id });
+        self.addr.do_send(Disconnect { id: self.id.clone() });
         Running::Stop
     }
 }
@@ -67,7 +98,7 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for Node {
         println!("WS: {:?}", msg);
         match msg {
             ws::Message::Ping(msg) => ctx.pong(&msg),
-            ws::Message::Text(text) => (),
+            ws::Message::Text(text) => self.decode(text, ctx),
             ws::Message::Binary(bin) => ctx.binary(bin),
             ws::Message::Close(_) => ctx.stop(),
             _ => (),
