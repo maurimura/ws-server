@@ -21,6 +21,7 @@ impl Server {
     /// Send message to all users in the room
     fn send_message(&mut self, message: String, skip_id: Option<usize>) {
         for (id, addr) in self.clients.iter() {
+            println!("[MESSAGE]: {}", message);
             match skip_id {
                 Some(skip_id) => {
                     if *id != skip_id {
@@ -39,12 +40,14 @@ impl Server {
         let addr = self.clients.get(&id_to_send);
         match addr {
             Some(addr) => {
-                println!("[SEND_MESSAGE_TO] Client {} matched ", id_to_send);
-                println!("{}", message);
                 let _ = addr.do_send(Message(message.clone()));
             }
             None => println!("Client not exist"),
         }
+    }
+    
+    fn broadcast(&mut self, message: String) {
+        self.send_message(message, None)
     }
 }
 
@@ -65,13 +68,14 @@ impl Handler<Connect> for Server {
     type Result = usize;
 
     fn handle(&mut self, msg: Connect, _: &mut Context<Self>) -> Self::Result {
-        println!("Someone joined");
-
         // notify all users in same room
 
         // register session with random id
         let id = self.rng.gen::<usize>();
         let _ = self.clients.insert(id, msg.addr);
+
+        println!("{} joined", id);
+
         let resp = object! {
             "type" => "ADD",
             "payload" => id
@@ -89,9 +93,12 @@ impl Handler<Connect> for Server {
 
         let resp = object! {
             "type" => "WELCOME",
-            "payload" => data
+            "payload" => object!{
+                "clients" => data,
+                "id" => id
+            }
         };
-        println!("{}", id);
+
         self.send_message_to(json::stringify(resp), id);
 
         // send id back
@@ -140,6 +147,29 @@ impl Handler<List> for Server {
         }
 
         MessageResult(clients)
+    }
+}
+
+#[derive(Message)]
+pub struct All {
+    pub message: String,
+    pub id: usize 
+}
+
+impl Handler<All> for Server {
+    type Result = ();
+
+    fn handle(&mut self, msg: All, ctx: &mut Context<Self>) {
+        println!("MESSAGE TO ALL");
+        let resp = object! {
+            "type" => "NEW",
+            "payload" => object! {
+                "message" => msg.message,
+                "id" => msg.id
+            }
+        };
+        
+        self.send_message(json::stringify(resp), None)
     }
 }
 
