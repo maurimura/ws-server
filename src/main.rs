@@ -6,7 +6,6 @@ use actix::*;
 use actix_files as fs;
 use actix_web::{web, App, HttpResponse, HttpServer};
 use std::collections::{HashMap};
-use rand::{self};
 
 
 use server::*;
@@ -19,7 +18,6 @@ fn main() -> std::io::Result<()> {
     let ws_server = Server {
         name: "Server".to_string(),
         clients: HashMap::new(),
-        rng: rand::thread_rng(),
     };
 
     let server = ws_server.start();

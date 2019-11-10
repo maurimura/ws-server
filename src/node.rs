@@ -1,4 +1,4 @@
-use crate::server::{All, Connect, Disconnect, Message, Server};
+use crate::server::{All, Connect, Disconnect, Message, Server, To};
 use actix::*;
 use actix_web_actors::ws;
 
@@ -17,7 +17,7 @@ impl Handler<Connected> for Server {
 }
 
 pub struct Node {
-    pub id: usize,
+    pub id: String,
     pub name: String,
     pub addr: Addr<Server>,
 }
@@ -35,7 +35,7 @@ impl Node {
                     self.addr
                         .send(All {
                             message: v[1].to_string(),
-                            id: self.id,
+                            id: self.id.clone(),
                         })
                         .into_actor(self)
                         .then(|_, _, _| {
@@ -43,7 +43,15 @@ impl Node {
                         })
                         .wait(ctx);
                 }
-                "/otro" => {}
+                "/to" => {
+                    let new_vec: Vec<&str> = v[1].splitn(2, " ").collect();
+                    println!("{:?}", new_vec);
+                    self.addr.do_send(To {
+                        id: self.id.clone(),
+                        message: new_vec[1].to_string(),
+                        id_to_send: new_vec[0].parse().unwrap()
+                    });
+                }   
                 _ => {}
             }
         }
@@ -79,7 +87,7 @@ impl Actor for Node {
 
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
         // notify chat server
-        self.addr.do_send(Disconnect { id: self.id });
+        self.addr.do_send(Disconnect { id: self.id.clone() });
         Running::Stop
     }
 }
