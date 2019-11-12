@@ -9,10 +9,15 @@ use std::collections::HashMap;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 
+pub struct Client {
+    pub addr: Recipient<Message>,
+    pub name: String
+}
+
 /// Define http actor
 pub struct Server {
     pub name: String,
-    pub clients: HashMap<String, Recipient<Message>>,
+    pub clients: HashMap<String, Client>,
 }
 
 #[derive(Clone, Message)]
@@ -21,16 +26,16 @@ pub struct Message(pub String);
 impl Server {
     /// Send message to all users in the room
     fn send_message(&mut self, message: String, skip_id: Option<String>) {
-        for (id, addr) in self.clients.iter() {
+        for (id, client) in self.clients.iter() {
             println!("[MESSAGE]: {}", message);
             match skip_id.clone() {
                 Some(skip_id) => {
                     if *id != skip_id {
-                        let _ = addr.do_send(Message(message.clone()));
+                        let _ = client.addr.do_send(Message(message.clone()));
                     }
                 }
                 None => {
-                    let _ = addr.do_send(Message(message.clone()));
+                    let _ = client.addr.do_send(Message(message.clone()));
                 }
             }
         }
@@ -44,10 +49,10 @@ impl Server {
             println!("[CLIENT] {}", id);
         }
 
-        let addr = self.clients.get(&id_to_send);
-        match addr {
-            Some(addr) => {
-                let _ = addr.do_send(Message(message.clone()));
+        let client = self.clients.get(&id_to_send);
+        match client {
+            Some(client) => {
+                let _ = client.addr.do_send(Message(message.clone()));
             }
             None => println!("Client not exist"),
         }
@@ -80,7 +85,7 @@ impl Handler<Connect> for Server {
         // register session with random id
         let id: String = thread_rng().sample_iter(&Alphanumeric).take(16).collect();
 
-        let _ = self.clients.insert(id.clone(), msg.addr);
+        let _ = self.clients.insert(id.clone(), Client {addr: msg.addr, name: msg.name.clone() });
 
         println!("{} joined", id.clone());
 
@@ -94,14 +99,14 @@ impl Handler<Connect> for Server {
         self.send_message(json::stringify(resp), Some(id.clone()));
 
         let mut data = array![];
-        for (id, _) in self
+        for (id, client) in self
             .clients
             .iter()
             .filter(|(client_id, _)| **client_id != id.clone())
         {
             let _ = data.push(object! {
                 "id" => id.clone(),
-                "name" => msg.name.clone()
+                "name" => client.name.clone()
             });
         }
 
@@ -109,7 +114,8 @@ impl Handler<Connect> for Server {
             "type" => "WELCOME",
             "payload" => object!{
                 "clients" => data,
-                "id" => id.clone()
+                "id" => id.clone(),
+                "name" => msg.name.clone(),
             }
         };
 
@@ -225,12 +231,18 @@ pub fn index(
     req: HttpRequest,
     stream: web::Payload,
     srv: web::Data<Addr<Server>>,
+    name: Option<web::Path<String>>
 ) -> Result<HttpResponse, Error> {
+    let name = match name{
+        Some(name) => name.to_string(),
+        None => "NODE".to_string()
+    };
+    println!("NAME MATHCED: {}", name);
     ws::start(
         Node {
             id: "0".to_string(),
             addr: srv.get_ref().clone(),
-            name: "NODE".to_string(),
+            name: name,
         },
         &req,
         stream,
