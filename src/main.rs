@@ -19,7 +19,6 @@ fn main() -> std::io::Result<()> {
         name: "Server".to_string(),
         clients: HashMap::new(),
     };
-
     let server = ws_server.start();
 
     HttpServer::new(move || {
@@ -31,6 +30,7 @@ fn main() -> std::io::Result<()> {
                     .finish()
             }))
             .service(fs::Files::new("/static/", "client/"))
+            .service(web::resource("/ws/{name}").to(index))
             .service(web::resource("/ws/").to(index))
     })
     .bind("127.0.0.1:3000")?
