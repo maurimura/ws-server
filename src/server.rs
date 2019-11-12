@@ -6,8 +6,8 @@ use json::array;
 use json::object;
 use std::collections::HashMap;
 
-use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 
 /// Define http actor
 pub struct Server {
@@ -40,7 +40,7 @@ impl Server {
     fn send_message_to(&mut self, message: String, id_to_send: String) {
         println!("[ID_TO_SEND] {}", id_to_send);
 
-        for(id, _) in self.clients.iter(){
+        for (id, _) in self.clients.iter() {
             println!("[CLIENT] {}", id);
         }
 
@@ -65,6 +65,7 @@ impl Actor for Server {
 #[rtype(String)]
 pub struct Connect {
     pub addr: Recipient<Message>,
+    pub name: String,
 }
 
 /// Handler for Connect message.
@@ -77,10 +78,7 @@ impl Handler<Connect> for Server {
         // notify all users in same room
 
         // register session with random id
-        let id: String = thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(16)
-        .collect();
+        let id: String = thread_rng().sample_iter(&Alphanumeric).take(16).collect();
 
         let _ = self.clients.insert(id.clone(), msg.addr);
 
@@ -88,7 +86,10 @@ impl Handler<Connect> for Server {
 
         let resp = object! {
             "type" => "ADD",
-            "payload" => id.clone()
+            "payload" => object!{
+                "id" => id.clone(),
+                "name" => msg.name.clone()
+            }
         };
         self.send_message(json::stringify(resp), Some(id.clone()));
 
@@ -98,7 +99,10 @@ impl Handler<Connect> for Server {
             .iter()
             .filter(|(client_id, _)| **client_id != id.clone())
         {
-            let _ = data.push(id.clone());
+            let _ = data.push(object! {
+                "id" => id.clone(),
+                "name" => msg.name.clone()
+            });
         }
 
         let resp = object! {
@@ -172,7 +176,6 @@ impl Handler<To> for Server {
     type Result = ();
 
     fn handle(&mut self, msg: To, ctx: &mut Context<Self>) {
-        
         let to_resp = object! {
             "type" => "NEW",
             "payload" => object! {
@@ -182,7 +185,7 @@ impl Handler<To> for Server {
             }
         };
 
-        let from_resp = object!{
+        let from_resp = object! {
             "type" => "NEW",
             "payload" => object! {
                 "channel" => msg.id_to_send.clone(),
@@ -193,6 +196,28 @@ impl Handler<To> for Server {
 
         self.send_message_to(json::stringify(to_resp), msg.id_to_send);
         self.send_message_to(json::stringify(from_resp), msg.id);
+    }
+}
+
+#[derive(Message)]
+pub struct Name {
+    pub name: String,
+    pub id: String,
+}
+
+impl Handler<Name> for Server {
+    type Result = ();
+
+    fn handle(&mut self, msg: Name, ctx: &mut Context<Self>) {
+        println!("MESSAGE TO ALL");
+        let resp = object! {
+            "type" => "CHANGE_NAME",
+            "payload" => object! {
+                "id" => msg.id.clone(),
+                "name" => msg.name
+            }
+        };
+        self.send_message(json::stringify(resp), Some(msg.id))
     }
 }
 

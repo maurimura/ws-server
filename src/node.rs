@@ -1,4 +1,4 @@
-use crate::server::{All, Connect, Disconnect, Message, Server, To};
+use crate::server::{All, Connect, Disconnect, Message, Server, To, Name};
 use actix::*;
 use actix_web_actors::ws;
 
@@ -56,6 +56,19 @@ impl Node {
                         }
                     }
                 }
+                "/name" => {
+                    if v.len() > 1 {
+                        self.name = v[1].to_string();
+                        self.addr
+                            .send(Name {
+                                name: v[1].to_string(),
+                                id: self.id.clone(),
+                            })
+                            .into_actor(self)
+                            .then(|_, _, _| fut::ok(()))
+                            .wait(ctx);
+                    }
+                }
                 _ => {}
             }
         }
@@ -76,6 +89,7 @@ impl Actor for Node {
         self.addr
             .send(Connect {
                 addr: addr.recipient(),
+                name: self.name.clone()
             })
             .into_actor(self)
             .then(|res, act, ctx2| {
