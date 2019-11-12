@@ -27,31 +27,35 @@ impl Node {
         println!("{}", message);
 
         let m = message.trim();
-        if m.starts_with("/") {
-            let v: Vec<&str> = m.splitn(2, " ").collect();
-
+        if m.starts_with('/') {
+            let v: Vec<&str> = m.splitn(2, ' ').collect();
+            println!("{:?}", v);
             match v[0] {
                 "/all" => {
-                    self.addr
-                        .send(All {
-                            message: v[1].to_string(),
-                            id: self.id.clone(),
-                        })
-                        .into_actor(self)
-                        .then(|_, _, _| {
-                            fut::ok(())
-                        })
-                        .wait(ctx);
+                    if v.len() > 1 {
+                        self.addr
+                            .send(All {
+                                message: v[1].to_string(),
+                                id: self.id.clone(),
+                            })
+                            .into_actor(self)
+                            .then(|_, _, _| fut::ok(()))
+                            .wait(ctx);
+                    }
                 }
                 "/to" => {
-                    let new_vec: Vec<&str> = v[1].splitn(2, " ").collect();
-                    println!("{:?}", new_vec);
-                    self.addr.do_send(To {
-                        id: self.id.clone(),
-                        message: new_vec[1].to_string(),
-                        id_to_send: new_vec[0].parse().unwrap()
-                    });
-                }   
+                    if v.len() > 1 {
+                        let new_vec: Vec<&str> = v[1].splitn(2,' ').collect();
+                        println!("{:?}", new_vec);
+                        if new_vec.len() > 1 {
+                            self.addr.do_send(To {
+                                id: self.id.clone(),
+                                message: new_vec[1].to_string(),
+                                id_to_send: new_vec[0].parse().unwrap(),
+                            });
+                        }
+                    }
+                }
                 _ => {}
             }
         }
@@ -87,7 +91,9 @@ impl Actor for Node {
 
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
         // notify chat server
-        self.addr.do_send(Disconnect { id: self.id.clone() });
+        self.addr.do_send(Disconnect {
+            id: self.id.clone(),
+        });
         Running::Stop
     }
 }
