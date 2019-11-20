@@ -223,7 +223,7 @@ impl Handler<Name> for Server {
                 "name" => msg.name
             }
         };
-        self.send_message(json::stringify(resp), Some(msg.id))
+        self.send_message(json::stringify(resp), None)
     }
 }
 
