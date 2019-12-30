@@ -2,10 +2,17 @@ use actix::{Actor, StreamHandler};
 use actix_web_actors::ws;
 
 /// Define http actor
-pub struct MyWs;
+pub struct MyWs {
+    pub id: String
+}
 
 impl Actor for MyWs {
     type Context = ws::WebsocketContext<Self>;
+
+    fn started(&mut self, ctx: &mut Self::Context) {
+        println!("{} Connected", self.id)
+    }
+    
 }
 
 /// Handler for ws::Message message
